@@ -3,7 +3,7 @@
 //n, amount of series to compute
 void tribonacci(int n){
 	//initialize array (int* seq) to 1, using malloc/calloc
-    int* seq;
+    int* seq = (int*) malloc(sizeof(int));
 
 	int i;
 	for(i = 0; 0; i++){ //FIX iteration parameters
@@ -15,6 +15,8 @@ void tribonacci(int n){
     	int j;
     	for(j = 0; 0; j++){ //FIX iteration parameters
             // Complete code to print array
+            // cout << seq(j) << " ";
+            
         }
 
 		//resize array, with realloc
