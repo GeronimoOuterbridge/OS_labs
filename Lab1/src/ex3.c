@@ -2,6 +2,28 @@
 
 void decode(char* cmd){
     //TODO
+    int  len = strlen(cmd);
+    int sq = sqrt(len);
+    //check if aqrt is whole
+    if (sq == (sqrt(len))) {
+        // sq = (int)sq;
+        //printf("The number has no decimal component.\n");
+        char decodedString[MAX_CHARS];
+        int i = 0;
+        for (int col = 0; col < sq; col++){
+            for (int row = 0; row < sq; row++){
+                decodedString[i] = cmd[col +(sq * row)];
+                i++;
+            }
+        }
+        printf("%s\n", decodedString);
+        memset(cmd, 0, MAX_CHARS);  
+        memset(decodedString, 0, MAX_CHARS);
+    } else {
+        //return INVALID ;
+        printf("%s\n", "INVALID");
+    }
+    
 }
 
 int main(void){

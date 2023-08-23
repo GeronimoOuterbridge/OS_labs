@@ -25,16 +25,21 @@ int main (void)
 
     scanf("%d\n", &nlines);
     //TODO: INIT word AND word_list
-    
+    word_list = (char**) calloc(nlines, sizeof(char*));
+    word = (char*) calloc(MAX_CHARS, sizeof(char*));
     // READ WORDS AND POINT EACH ELEMENT OF WORD_LIST TO A WORD
     for (int i = 0; i < nlines; i++) {
         //TODO: INSERT YOUR CODE TO FILL word_list WITH THE STD INPUTS 
+        scanf("%s\n", word);
+        word_list[i] = word;
+        word = (char*) calloc(MAX_CHARS, sizeof(char*));
     }
     
     qsort_((void **) word_list, 0, nlines - 1, (int (*)(void *, void *)) (strcmp));
     
     // PRINT SORTED ELEMENTS: 
     for (int i = 0; i < nlines; i++) {
+        printf("%s\n", word_list[i]);
     }
 
 }
