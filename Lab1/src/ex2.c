@@ -6,27 +6,42 @@ void tribonacci(int n){
     int* seq = (int*) malloc(sizeof(int));
 
 	int i;
-	for(i = 0; 0; i++){ //FIX iteration parameters
+	for(i = 0; i <= n; i++){ //FIX iteration parameters
 
     	// Recompute the whole series
     	tribonacciHelper(i, seq);
 
 	    //print array
     	int j;
-    	for(j = 0; 0; j++){ //FIX iteration parameters
-            // Complete code to print array
-            // cout << seq(j) << " ";
-            
+    	for(j = 0; j <= i; j++){ //FIX iteration parameters
+            printf("%d ", *(seq+j)); // print j'th position of pointer
         }
+        printf("\n");
 
 		//resize array, with realloc
+        seq = realloc(seq, (i+2)*sizeof(int));
 	}
 	//free array
+     free(seq);
 }
 
 //n=amount of numbers in the series to compute, seq=array to store series
 void tribonacciHelper(int n, int *seq){
-    //TODO
+
+    if (n == 0){ 
+        *(seq + n) = 0;
+         return;
+    }
+    else if (n == 1 || n == 2 ){
+        
+         *(seq + n) = 1;
+    }   
+    else{
+        *(seq + n) = *(seq + (n-1)) + *(seq + (n-2)) + *(seq + (n-3));
+    }
+    tribonacciHelper(n-1, seq);
+   
+    
 }
 
 int main(void){
