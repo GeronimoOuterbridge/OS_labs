@@ -3,7 +3,7 @@
 int main (void)
 {
 
-    /*
+    /* yeeeeeeeeeeeeeeeeee
     Type the following characters on the console (stdin) to test your implementation.
         4
         CCC
