@@ -1,0 +1,20 @@
+if (cont_wins == 2)
+    {
+        rp = rdy_tail[q];
+        cont_wins = 0;
+    }
+    else{
+        int sum = 0;
+        int lottery_w = rand();
+        while (sum < lottery_w){
+            sum = sum + rp->tickets;
+            if (sum < lottery_w){
+                rp = rp->p_nextready;
+            }
+        }
+    }
+
+    if (rp->tickets > 10){
+        cont_wins++;
+    }
+    total_tckts -= rp->tickets;

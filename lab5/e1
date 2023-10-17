@@ -1,0 +1,46 @@
+/* Now add the process to the queue. */
+   //If queue is empty
+  if (!rdy_head[q])
+  {
+      rdy_head[q] = rdy_tail[q] = rp;
+      rp->p_nextready = NULL;
+  }
+  //Check if ticket is 0. It will become the tail as it is the smallest value.
+  else if (rp->tickets == 0)
+  {
+      rdy_tail[q]->p_nextready = rp;
+      rdy_tail[q] = rp;
+      rp->p_nextready = NULL;
+  }
+//Any none 0 value ticket will enqueue at the end.
+  else
+  {
+      if (rdy_head[q]->tickets < rp->tickets || rdy_head[q]->tickets == 0)
+      {
+          rp->p_nextready = rdy_head[q];
+          rdy_head[q] = rp;
+      }
+      else
+      {
+          struct proc *current_node = rdy_head[q];
+          struct proc *next_node = current_node->p_nextready;
+
+          while (next_node != rdy_tail[q]->p_nextready && (next_node->tickets > rp->tickets && next_node->tickets != 0))
+          {
+              current_node = next_node;
+              next_node = next_node->p_nextready;
+          }
+          
+          if (next_node == rdy_tail[q]->p_nextready)
+          {
+              rdy_tail[q]->p_nextready = rp;
+              rdy_tail[q] = rp;
+              rp->p_nextready = NULL;
+          }
+          else
+          {
+              rp->p_nextready = next_node;
+              current_node->p_nextready = rp;
+          }
+      }
+  }
