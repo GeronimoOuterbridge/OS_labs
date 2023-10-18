@@ -1,7 +1,24 @@
 # Edwin Camuy, 2023-10-17
 import sys
+from math import lcm, ceil
+from fractions import Fraction
+  
+def get_numeric_input(input_token: str) -> Fraction:
+  res = Fraction(input_token).limit_denominator(16)
+  if (res < 0):
+    report_bad_usage("No negative values!")
+  return res
 
-def report_bad_usage(msg):
+def to_whole(frac: Fraction, conversion_factor: int) -> int:
+  """
+  Converts a fraction to an integer by multiplying it with a conversion factor.
+  
+  frac - base fraction
+  conversion_factor - factor to multiply it by
+  """
+  return int(frac * conversion_factor)
+
+def report_bad_usage(msg: str):
   print(msg)
   print("Usage: main.py <options>")
   print("""Options are
@@ -12,7 +29,7 @@ def report_bad_usage(msg):
   """)
   sys.exit()
 
-def register_processes(names, durations, entries):
+def register_processes(names: list[str], durations: list[int], entries: list[int]) -> dict[str: tuple[int, int]]:
   """
   names - list of names of processes
   durations - list of durations
@@ -33,16 +50,18 @@ def register_processes(names, durations, entries):
 
   return processes
 
-def get_inputs(args):
+def get_inputs(args: list[str]):
   """
   args - program arguments
   return - (quanta, processes)
   """
-  q = 1
+  q = Fraction(1, 1)
   q_been_set = False
   names = []
   durations = []
   entries = []
+
+  all_denominators = []
 
   class InputMode:
     DEFAULT_MODE = 0
@@ -72,25 +91,34 @@ def get_inputs(args):
           case InputMode.Q_MODE:
             if q_been_set:
               report_bad_usage("Only one quanta duration can be specified")
-            q = int(input_token)
+            q = get_numeric_input(input_token)
+            all_denominators.append(q.denominator)
             q_been_set = True
           case InputMode.NAMES_MODE:
             names.append(input_token)
           case InputMode.DURATIONS_MODE:
-            durations.append(int(input_token))
+            durations.append(x := get_numeric_input(input_token))
+            all_denominators.append(x.denominator)
           case InputMode.ENTRIES_MODE:
-            entries.append(int(input_token))
+            entries.append(x := get_numeric_input(input_token))
+            all_denominators.append(x.denominator)
           case _:
             report_bad_usage("Unknown option: " + input_token)
           
+  conversion_factor = lcm(*all_denominators)
+  adjusted_q = to_whole(q, conversion_factor)
+  adjusted_durations = [to_whole(i, conversion_factor) for i in durations]
+  adjusted_entries = [to_whole(i, conversion_factor) for i in entries]
 
   try:
-    processes = register_processes(names, durations, entries)
+    processes = register_processes(names, adjusted_durations, adjusted_entries)
+    # If we have fractional parts we will need to convert them into integers through a conversion factor.
+    return adjusted_q, processes, conversion_factor
   except AssertionError:
     report_bad_usage("The lists you sent did not match in length, or are empty")
-    return None, None
+    return None
   
-  return q, processes
+
 
 def fcfs(processes):
   """
@@ -219,85 +247,136 @@ def rr(q, processes):
 
   return res
 
-def format_table(arr):
+def get_streaks(arr: list) -> list:
   """
-  arr - list in the form [pname, pname, pname, ...]
-  return - formatted gantt chart
+  Finds consecutive values in a list and returns a compressed list containing (value, streak) tuples
+  
+  arr - list
+  return - list of (value, streak) tuples where streak = number of times a value appeared consecutively
   """
-  # Top row
-  res = ""
-  space_per_time_step = len(max(arr, key=len))
-  total_time_steps = len(arr)
-  table_width = (space_per_time_step + 1) * total_time_steps - 1
-  res += "+" + "-" * table_width + "+\n"
-  # Middle row
-  res += "|"
-  for i in range(total_time_steps):
-    res += f"{arr[i] :{space_per_time_step}}"
-    res += "|"
-  res += "\n"
-  # Bottom row
-  res += "+" + "-" * table_width + "+"
+  res = []
+
+  current_val = None
+  current_count = 0
+
+  for i in arr:
+    if i == current_val:
+      current_count += 1
+    elif current_val == None:
+      current_val = i
+      current_count = 1
+    else:
+      assert(current_count > 0)
+      res.append((current_val, current_count))
+      current_val = i
+      current_count = 1
+  
+  res.append((current_val, current_count))
 
   return res
 
-def stats(arr, processes):
+def format_table(arr, width, conversion_factor):
+  """
+  arr - list in the form [pname, pname, pname, ...]
+  width - minimum width in columns of the table
+  return - formatted gantt chart
+  """
+  streaks = get_streaks(arr)
+
+  scale = width / (len(arr))
+
+  middle_row = "|"
+  for name, length in streaks:
+    if name == "":
+      name = "Wait"
+    label = f"{name}: {length / conversion_factor: 0.2f}"
+    segment_desired_width = ceil(length * scale)
+    padding_length = segment_desired_width - 1 - len(label)
+    padding = " " * padding_length
+    middle_row += label + padding + "|"
+  middle_row += "\n"
+
+  head = "+" + "-" * (len(middle_row) - 3) + "+\n"
+
+  res = head + middle_row + head
+
+  return res
+
+def stats(arr, processes, conversion_factor):
   """
   arr - list in the form [pname, pname, pname, ...]
   processes - process dictionary
+  conversion_factor - divides final measures to adjust
   return - (average turnaround, average waiting time)
   """
 
   turnarounds = {k: 0 for k in processes.keys()}
   waiting_times = {k: 0 for k in processes.keys()}
+  response_times = {k: 0 for k in processes.keys()}
+
   remaining_times = {k: v[0] for k, v in processes.items()}
+  has_started = {k: False for k in processes.keys()}
 
   for time, pname in enumerate(arr):
     if pname == "":
       continue
+
+    has_started[pname] = True
     
     for k, v in processes.items():
       if remaining_times[k] != 0 and time >= v[1]:
         turnarounds[k] += 1
         if pname != k:
           waiting_times[k] += 1
+        if not has_started[k]:
+          response_times[k] += 1
     
     remaining_times[pname] -= 1
+
+  avg_turnaround = sum(turnarounds.values()) / len(processes) / conversion_factor
+  avg_waiting_time = sum(waiting_times.values()) / len(processes) / conversion_factor
+  avg_response_time = sum(response_times.values()) / len(processes) / conversion_factor
   
-  return sum(turnarounds.values()) / len(processes), sum(waiting_times.values()) / len(processes)
+  return avg_turnaround, avg_waiting_time, avg_response_time
 
 
 def main():
-  q, processes = get_inputs(sys.argv)
+  q, processes, conversion_factor = get_inputs(sys.argv)
 
   fcfs_arr = fcfs(processes)
   sjf_arr = sjf(processes)
   srjf_arr = srjf(processes)
   rr_arr = rr(q, processes)
 
+  table_width = 100
+
   print("First Come First Serve")
-  print(format_table(fcfs_arr))
-  turnaround, waiting_time = stats(fcfs_arr, processes)
+  print(format_table(fcfs_arr, table_width, conversion_factor))
+  turnaround, waiting_time, response_time = stats(fcfs_arr, processes, conversion_factor)
   print(f"Average turnaround: {turnaround:0.2f}")
-  print(f"Average waiting time: {waiting_time:0.2f}\n")
+  print(f"Average waiting time: {waiting_time:0.2f}")
+  print(f"Average response time: {response_time:0.2f}\n\n")
   
   print("Shortest Job First")
-  print(format_table(sjf_arr))
-  turnaround, waiting_time = stats(sjf_arr, processes)
+  print(format_table(sjf_arr, table_width, conversion_factor))
+  turnaround, waiting_time, response_time = stats(sjf_arr, processes, conversion_factor)
   print(f"Average turnaround: {turnaround:0.2f}")
-  print(f"Average waiting time: {waiting_time:0.2f}\n")
+  print(f"Average waiting time: {waiting_time:0.2f}")
+  print(f"Average response time: {response_time:0.2f}\n\n")
 
   print("Shortest Remaining Job First")
-  print(format_table(srjf_arr))
-  turnaround, waiting_time = stats(srjf_arr, processes)
+  print(format_table(srjf_arr, table_width, conversion_factor))
+  turnaround, waiting_time, response_time = stats(srjf_arr, processes, conversion_factor)
   print(f"Average turnaround: {turnaround:0.2f}")
-  print(f"Average waiting time: {waiting_time:0.2f}\n")
+  print(f"Average waiting time: {waiting_time:0.2f}")
+  print(f"Average response time: {response_time:0.2f}")
 
-  print(f"Round Robin q = {q}")
-  print(format_table(rr_arr))
-  turnaround, waiting_time = stats(rr_arr, processes)
+  print(f"Round Robin q = {q // conversion_factor}")
+  print(format_table(rr_arr, table_width, conversion_factor))
+  turnaround, waiting_time, response_time = stats(rr_arr, processes, conversion_factor)
   print(f"Average turnaround: {turnaround:0.2f}")
-  print(f"Average waiting time: {waiting_time:0.2f}\n")
+  print(f"Average waiting time: {waiting_time:0.2f}")
+  print(f"Average response time: {response_time:0.2f}\n\n")
 
 
 if __name__ == "__main__":
